@@ -1,0 +1,97 @@
+name: Release Deploy
+
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tag itself doesn't exist as a real ref yet while the release
+          # is still a draft (GitHub only materializes it on publish) - check
+          # out the commit release-please tagged instead.
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/checkout@v4
+        with:
+          repository: theme-my-login/tml-workflows
+          path: .tml-workflows
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install shared build tooling
+        run: npm ci --prefix .tml-workflows/bin
+
+      - name: Build assets
+        run: node .tml-workflows/bin/build.mjs
+
+      - name: Setup WP-CLI
+        run: |
+          curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x wp-cli.phar
+          sudo mv wp-cli.phar /usr/local/bin/wp
+
+      - name: Generate POT file
+        run: |
+          slug="${{ github.event.repository.name }}"
+          wp i18n make-pot . "languages/${slug}.pot" --slug="${slug}" --domain="${slug}"
+
+      - name: Package zip
+        id: zip
+        run: |
+          set -euo pipefail
+
+          node .tml-workflows/bin/zip.mjs
+
+          slug="${{ github.event.repository.name }}"
+          version="${{ inputs.tag_name }}"
+          version="${version#v}"
+          file_name="${slug}-${version}.zip"
+
+          mv "../${slug}.zip" "../${file_name}"
+
+          echo "slug=${slug}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "file_name=${file_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to DigitalOcean Spaces
+        id: upload
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_SECRET }}
+        run: |
+          set -euo pipefail
+
+          extension_slug="${{ steps.zip.outputs.slug }}"
+          extension_slug="${extension_slug#tml-}"
+          s3_key="extensions/${extension_slug}/${{ steps.zip.outputs.file_name }}"
+
+          aws s3 cp "../${{ steps.zip.outputs.file_name }}" "s3://${{ vars.DO_SPACES_BUCKET }}/${s3_key}" \
+            --endpoint-url "https://${{ vars.DO_SPACES_HOST }}"
+
+          echo "s3_path=${{ vars.DO_SPACES_BUCKET }}/${s3_key}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute release bullets and publish to EDD
+        env:
+          CI_RELEASE_TOKEN: ${{ secrets.CI_RELEASE_TOKEN }}
+          RELEASE_ENDPOINT_URL: ${{ vars.RELEASE_ENDPOINT_URL }}
+          RELEASE_DRY_RUN: ${{ vars.RELEASE_DRY_RUN }}
+          TAG_NAME: ${{ inputs.tag_name }}
+          VERSION: ${{ steps.zip.outputs.version }}
+          FILE_NAME: ${{ steps.zip.outputs.file_name }}
+          S3_PATH: ${{ steps.upload.outputs.s3_path }}
+        run: php .tml-workflows/bin/publish.php

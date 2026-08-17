@@ -1,0 +1,68 @@
+name: Release Please
+
+on:
+  workflow_call:
+    outputs:
+      release_created:
+        value: ${{ jobs.release-please.outputs.release_created }}
+      tag_name:
+        value: ${{ jobs.release-please.outputs.tag_name }}
+      sha:
+        value: ${{ jobs.release-please.outputs.sha }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+
+    outputs:
+      release_created: ${{ steps.release-please.outputs.release_created }}
+      tag_name: ${{ steps.release-please.outputs.tag_name }}
+      sha: ${{ steps.release-please.outputs.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
+      - uses: googleapis/release-please-action@v5
+        id: release-please
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Request review from Jeff
+        if: steps.release-please.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_PLEASE_PR: ${{ steps.release-please.outputs.pr }}
+        run: |
+          set -euo pipefail
+
+          branch=$(echo "$RELEASE_PLEASE_PR" | jq -r '.headBranchName // empty')
+          if [ -z "$branch" ]; then
+            echo "No pending release-please PR found; skipping reviewer request."
+            exit 0
+          fi
+
+          pr_number=$(gh pr list --repo ${{ github.repository }} --head "$branch" --json number --jq '.[0].number')
+          gh pr edit "$pr_number" --repo ${{ github.repository }} --add-reviewer jfarthing84
+
+  deploy:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: theme-my-login/tml-workflows/.github/workflows/release-deploy.yml@main
+    with:
+      tag_name: ${{ needs.release-please.outputs.tag_name }}
+      sha: ${{ needs.release-please.outputs.sha }}
+    secrets: inherit
