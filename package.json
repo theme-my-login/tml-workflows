@@ -1,0 +1,18 @@
+{
+  "name": "tml-workflows",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tml-build": "./build.mjs",
+    "tml-zip": "./zip.mjs"
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.21",
+    "chokidar": "^4.0.3",
+    "cssnano": "^7.1.1",
+    "esbuild": "^0.25.11",
+    "postcss": "^8.5.6",
+    "postcss-nested": "^8.0.1",
+    "svgo": "^4.0.0"
+  }
+}

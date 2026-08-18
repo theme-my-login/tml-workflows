@@ -24,20 +24,15 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: actions/checkout@v4
-        with:
-          repository: theme-my-login/tml-workflows
-          path: .tml-workflows
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install shared build tooling
-        run: npm ci --prefix .tml-workflows/bin
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build assets
-        run: node .tml-workflows/bin/build.mjs
+        run: npx tml-build
 
       - name: Setup WP-CLI
         run: |
@@ -55,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          node .tml-workflows/bin/zip.mjs
+          npx tml-zip
 
           slug="${{ github.event.repository.name }}"
           version="${{ inputs.tag_name }}"
@@ -94,4 +89,4 @@ jobs:
           VERSION: ${{ steps.zip.outputs.version }}
           FILE_NAME: ${{ steps.zip.outputs.file_name }}
           S3_PATH: ${{ steps.upload.outputs.s3_path }}
-        run: php .tml-workflows/bin/publish.php
+        run: php node_modules/tml-workflows/bin/publish.php

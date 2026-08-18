@@ -22,27 +22,6 @@ jobs:
       - name: Run phpcs
         run: composer run lint
 
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/checkout@v4
-        with:
-          repository: theme-my-login/tml-workflows
-          path: .tml-workflows
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install shared build tooling
-        run: npm ci --prefix .tml-workflows/bin
-
-      - name: Build assets
-        run: node .tml-workflows/bin/build.mjs
-
   phpunit:
     runs-on: ubuntu-latest
 
@@ -76,3 +55,9 @@ jobs:
         env:
           WP_TESTS_DB_HOST: 127.0.0.1
         run: vendor/bin/phpunit
+
+      - name: Run multisite test suite
+        if: hashFiles('tests/phpunit/multisite.xml') != ''
+        env:
+          WP_TESTS_DB_HOST: 127.0.0.1
+        run: vendor/bin/phpunit -c tests/phpunit/multisite.xml

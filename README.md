@@ -7,22 +7,51 @@ Each extension repo stays a thin caller — no build/deploy logic is duplicated 
 ## Workflows
 
 - **`release-please.yml`** — wraps `googleapis/release-please-action`. On every push to `master`, maintains a standing release PR (version bump computed from Conventional Commits) or, once that PR is merged and a release is tagged, calls `release-deploy.yml`.
-- **`release-deploy.yml`** — builds CSS/JS (`bin/build.mjs`), generates the POT file, packages the zip (`bin/zip.mjs`), uploads it to DigitalOcean Spaces, computes this release's changelog bullets from Conventional Commits since the previous tag (`bin/publish.php`, via `bin/lib/commits.php`), and publishes to EDD via the WP release endpoint (configured via `RELEASE_ENDPOINT_URL`).
+- **`release-deploy.yml`** — builds CSS/JS (`build.mjs`), generates the POT file, packages the zip (`zip.mjs`), uploads it to DigitalOcean Spaces, computes this release's changelog bullets from Conventional Commits since the previous tag (`bin/publish.php`, via `bin/lib/commits.php`), and publishes to EDD via the WP release endpoint (configured via `RELEASE_ENDPOINT_URL`).
 - **`code-review.yml`** — wraps `anthropics/claude-code-action`. Comments on issues found, approves a clean review; never a hard block.
 - **`lint-commits.yml`** — wraps `wagoid/commitlint-github-action`. Each calling repo needs its own `commitlint.config.js` (adapt from `theme-my-login-7`'s or the `CONTRIBUTING.md` doc).
-- **`test.yml`** — direct port of the base plugin's `test.yml` shape: `lint` (phpcs/WPCS via the calling repo's own `composer.json`/`phpcs.xml.dist`), `build` (same `build.mjs` as the deploy job, as a PR-time sanity check), `phpunit` (the calling repo's own `composer.json`/`phpunit.xml.dist`/`tests/`, with a MySQL service provisioned the same way the base plugin's does). The test *content* is per-repo, only the check shape is shared.
+- **`test.yml`** — `lint` (phpcs/WPCS via the calling repo's own `composer.json`/`phpcs.xml.dist`) and `phpunit` (the calling repo's own `composer.json`/`phpunit.xml.dist`/`tests/`, with a MySQL service provisioned the same way the base plugin's does; if the repo has `tests/phpunit/multisite.xml`, that suite runs too). The test *content* is per-repo, only the check shape is shared.
+- **`build.yml`** — same `build.mjs` as the deploy job, as a PR-time sanity check. Shared by the base plugin and every extension alike (see `build.mjs` below for how one script serves both).
 
-`bin/build.mjs` and `bin/zip.mjs` are checked out fresh into `.tml-workflows/` at deploy time (see `release-deploy.yml`) rather than duplicated into every extension's own repo — one source of truth for the build/package logic.
+## `build.mjs`
+
+One script, two auto-detected modes:
+
+- **In place** (no `src/` directory) — today's typical extension shape. `assets/styles`, `assets/scripts`, `assets/images` (and their `admin/assets/` equivalents, if present) are compiled where they sit: each CSS/JS file gets an independent `.min` sibling written next to it, SVGs get optimized in place. Nothing to configure.
+- **Build directory** (`src/` exists) — the base plugin's WordPress.org packaging convention. Everything under `src/` is copied to `build/` (the asset subtrees declared in `build.config.json` are excluded from the copy, since they're compiled separately), and a root-level `build.config.json` declares which files bundle into which named output per subtree, e.g.:
+  ```json
+  {
+    "subtrees": [
+      { "dir": "assets", "styles": { "theme-my-login": ["tml.css", "alerts.css"] }, "scripts": "theme-my-login" }
+    ]
+  }
+  ```
+  Verified byte-for-byte identical output against the base plugin's original standalone build script before this was adopted.
+
+SVG optimization (svgo) runs automatically wherever an `images/` subdirectory is present, in either mode — no config needed. `postcss-nested` is always included in the CSS pipeline (a no-op on CSS that doesn't use nested syntax), so extensions get it for free if they ever want nested selectors.
+
+## Consuming this as a dependency
+
+Add it as a `devDependency` pointing at the repo directly (it's public, no auth needed):
+
+```json
+"devDependencies": {
+  "tml-workflows": "github:theme-my-login/tml-workflows"
+}
+```
+
+`npm ci`/`npm install` then makes `build.mjs`/`zip.mjs` available via `npx tml-build`/`npx tml-zip`, and `bin/publish.php` at `node_modules/tml-workflows/bin/publish.php` — no second checkout needed, and `npm ci` resolves to a specific commit SHA recorded in `package-lock.json`, so builds stay reproducible until something in the consuming repo explicitly runs `npm update tml-workflows`.
 
 ## Requirements on a consuming extension repo
 
 - Root plugin file named `<repo-slug>.php`, extending `Theme_My_Login_Extension`, with an `x-release-please-version` marker comment on both the `Version:` header and the `protected $version = '...';` property (release-please's `extra-files` bumps these directly).
 - `release-please-config.json` + `.release-please-manifest.json` at the repo root.
 - `protected $item_id = <EDD download post ID>;` property — read directly by `bin/publish.php`.
-- CSS/JS in `assets/styles`/`assets/scripts`, if any — `bin/build.mjs` picks up whichever directories exist and skips the rest.
+- `tml-workflows` as a `devDependency` (see above) — needed by both `test.yml`'s `build` caller and `release-deploy.yml`.
+- CSS/JS in `assets/styles`/`assets/scripts`, if any — `build.mjs` picks up whichever directories exist and skips the rest.
 - Existing git tags following the `vX.Y.Z` convention.
 - Its own `composer.json`/`phpcs.xml.dist`/`phpunit.xml.dist`/`tests/` for the `test.yml` checks — not provided by this repo, since the content is extension-specific (see the plan doc's Component 2 for the base plugin's version to adapt from, and the open question about WP-integration tests needing the base plugin's own classes loaded).
-- Four thin caller workflows:
+- Five thin caller workflows:
 
   ```yaml
   # .github/workflows/release.yml
@@ -65,6 +94,8 @@ Each extension repo stays a thin caller — no build/deploy logic is duplicated 
   jobs:
     test:
       uses: theme-my-login/tml-workflows/.github/workflows/test.yml@main
+    build:
+      uses: theme-my-login/tml-workflows/.github/workflows/build.yml@main
   ```
 
 ## Org-level secrets/variables (set once on `theme-my-login`)
@@ -77,4 +108,4 @@ Variables: `RELEASE_ENDPOINT_URL`, `DO_SPACES_BUCKET`, `DO_SPACES_HOST`.
 
 ## Status
 
-Scaffolded 2026-08-17, not yet proven end-to-end. Next: set the org secrets/variables, then prove the chain against a throwaway pilot repo before wiring `tml-favorites` itself.
+`tml-pilot` proved release-please → checks → deploy dry-run end-to-end as of 2026-08-17, still on the pre-npm-package build.mjs. `build.mjs`/`zip.mjs` moved to the repo root as an installable package on 2026-08-18, verified byte-identical against the base plugin's original build script; the base plugin itself and `tml-pilot` still need to pick up the `devDependency` before this is proven in CI. Next: wire the base plugin, `tml-pilot`, then `tml-favorites`.
