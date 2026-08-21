@@ -50,7 +50,8 @@ Add it as a `devDependency` pointing at the repo directly (it's public, no auth 
 - `tml-workflows` as a `devDependency` (see above) — needed by both `test.yml`'s `build` caller and `release-deploy.yml`.
 - CSS/JS in `assets/styles`/`assets/scripts`, if any — `build.mjs` picks up whichever directories exist and skips the rest.
 - Existing git tags following the `vX.Y.Z` convention.
-- Its own `composer.json`/`phpcs.xml.dist`/`phpunit.xml.dist`/`tests/` for the `test.yml` checks — not provided by this repo, since the content is extension-specific (see the plan doc's Component 2 for the base plugin's version to adapt from, and the open question about WP-integration tests needing the base plugin's own classes loaded).
+- Its own `CONTRIBUTING.md` and `CLAUDE.md` — not provided by this repo, since Conventional Commits type rules and code conventions are repo-specific. Adapt both from `tml-favorites`, the reference extension for each; `CLAUDE.md` is auto-discovered by `code-review.yml`'s Claude Code action from the repo root with no workflow change needed.
+- Its own `composer.json`/`phpcs.xml.dist`/`phpunit.xml.dist`/`tests/` for the `test.yml` checks — not provided by this repo, since the content is extension-specific. Adapt `composer.json`/`phpcs.xml.dist` from the base plugin's version; for `phpunit.xml.dist`/`tests/bootstrap.php`, adapt `tml-favorites`' version instead — it resolves the "needs the base plugin's own classes loaded" question by pulling TML core from WPackagist's `dev-trunk` (so the pin never needs bumping) and loading both plugins through a real `muplugins_loaded` bootstrap against a real DB.
 - Five thin caller workflows:
 
   ```yaml
@@ -108,4 +109,6 @@ Variables: `RELEASE_ENDPOINT_URL`, `DO_SPACES_BUCKET`, `DO_SPACES_HOST`.
 
 ## Status
 
-`tml-pilot` proved release-please → checks → deploy dry-run end-to-end as of 2026-08-17, still on the pre-npm-package build.mjs. `build.mjs`/`zip.mjs` moved to the repo root as an installable package on 2026-08-18, verified byte-identical against the base plugin's original build script; the base plugin itself and `tml-pilot` still need to pick up the `devDependency` before this is proven in CI. Next: wire the base plugin, `tml-pilot`, then `tml-favorites`.
+`build.mjs`/`zip.mjs` live at the repo root as an installable package, verified byte-identical against the base plugin's original build script.
+
+The base plugin and one extension are fully onboarded and merged to their default branches, proving the pipeline end to end including a real WP-integration `phpunit` suite. Onboarding the rest of the extensions is in progress; use an already-onboarded repo as the reference for every requirement above, including its `CONTRIBUTING.md`/`CLAUDE.md`.
