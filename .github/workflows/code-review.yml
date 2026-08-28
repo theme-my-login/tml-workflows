@@ -38,10 +38,45 @@ jobs:
             - Correctness bugs and edge cases introduced by this diff
             - Security implications
             - Adherence to any project CLAUDE.md guidelines
+            - Commit subject wording (see below)
+            - Private-system identifiers in commit messages or the PR body (see below)
 
             Post inline comments on specific lines where you find real issues.
             Skip pedantic nitpicks and pre-existing issues not introduced by
             this diff.
+
+            Also check every commit's subject line. Get the full,
+            untruncated list with:
+            `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits --jq '.[].commit.message'`
+            (the PR's own GraphQL `commits` field truncates long subjects
+            with an ellipsis, so don't use `gh pr view --json commits` for
+            this).
+
+            For every commit whose type is `feat`, `fix`, or `perf` (or that
+            has a `!` after the type, or a `BREAKING CHANGE:` footer) - these
+            are the only types that ship in the customer-facing changelog -
+            the subject must read as the user-visible effect, not the
+            internal mechanism. Flag it if the subject:
+            - names a function, option key, filename, or shortcode/hook name, or
+            - otherwise describes an implementation detail (a data format, an
+              API/library call, a variable) that a non-technical changelog
+              reader wouldn't recognize as a symptom.
+            Exception: if the repo has `bin/draft-changelog.php`, a technical
+            subject paired with a `Release-Note:` trailer is fine - check for
+            that file before flagging. A subject issue isn't tied to a diff
+            line, so raise it in the general review body instead of an inline
+            comment: cite the commit's short SHA, its current subject, and a
+            corrected wording.
+
+            Also check the same commit messages, and the PR body, for a
+            reference to a private system - a Help Scout ticket number, an
+            internal doc/wiki link, a Slack thread, or anything else an
+            outside reader on GitHub couldn't follow. A public WP.org forum
+            thread is fine to cite. This is a judgment call ("would an
+            outside reader recognize what this points to?"), not a fixed
+            pattern - flag it in the general review body the same way as a
+            subject-wording issue, citing the commit or the PR body and what
+            to remove or generalize it to.
 
             Then submit a formal review. This is mandatory and is the only
             thing that records the outcome: the run is NOT complete until a
@@ -52,7 +87,8 @@ jobs:
 
             Write the review body to `/tmp/review-body.md` with the Write
             tool, then submit it with a single Bash call:
-            - If you posted inline comments (real issues were found):
+            - If you posted inline comments, or flagged a commit subject or a
+              private-system reference (real issues were found either way):
               `gh pr review ${{ github.event.pull_request.number }} --comment --body-file /tmp/review-body.md`
               Do NOT approve, since issues were found.
             - If you found nothing worth flagging:
@@ -69,7 +105,7 @@ jobs:
             only `gh pr review ...` itself is permitted, so anything else is
             denied outright and you get no second chance to submit.
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*)"
 
       # The action exits 0 whether or not Claude actually submitted anything,
       # so a dropped review used to look like a passing check. These two steps
