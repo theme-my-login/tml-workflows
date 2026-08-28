@@ -17,3 +17,16 @@ jobs:
           fetch-depth: 0
 
       - uses: wagoid/commitlint-github-action@v6
+
+      - name: Reject AI-attribution trailers/footers
+        run: |
+          pattern='(co-authored-by:.*(claude|anthropic|copilot|chatgpt|gpt-?[0-9]|gemini|openai))'
+          pattern+='|(generated (with|by).*(claude|copilot|chatgpt|gpt-?[0-9]|gemini|anthropic|openai))'
+          pattern+='|🤖'
+          hits=$(git log --format=%B "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" \
+            | grep -inE "$pattern" || true)
+          if [ -n "$hits" ]; then
+            echo "::error::A commit in this PR carries an AI-assistant attribution trailer/footer (CONTRIBUTING.md: 'No AI-attribution in commits or PRs'). Reword and force-push:"
+            echo "$hits"
+            exit 1
+          fi
