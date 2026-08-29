@@ -1,0 +1,21 @@
+name: PHP Checks (stub)
+
+# This repo has no composer.json/PHP code of its own, so the real test.yml
+# (phpcs + phpunit) doesn't apply here. These no-op jobs exist only so the
+# org ruleset's required "test / lint" and "test / phpunit" checks - shared
+# with every PHP repo that calls test.yml for real - are satisfied on this
+# repo's PRs too.
+
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'true'
+
+  phpunit:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'true'

@@ -12,3 +12,9 @@ jobs:
   review:
     uses: ./.github/workflows/code-review.yml
     secrets: inherit
+
+  test:
+    uses: ./.github/workflows/php-checks-stub.yml
+
+  build:
+    uses: ./.github/workflows/build-stub.yml
