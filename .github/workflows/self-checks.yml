@@ -1,0 +1,20 @@
+name: Self Checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, ready_for_review, reopened]
+    branches: [main]
+
+jobs:
+  lint-commits:
+    uses: ./.github/workflows/lint-commits.yml
+
+  review:
+    uses: ./.github/workflows/code-review.yml
+    secrets: inherit
+
+  test:
+    uses: ./.github/workflows/php-checks-stub.yml
+
+  build:
+    uses: ./.github/workflows/build-stub.yml
