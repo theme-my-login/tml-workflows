@@ -70,6 +70,7 @@ jobs:
             - Adherence to the written conventions (see below)
             - Commit subject wording (see below)
             - Private-system identifiers in commit messages or the PR body (see below)
+            - Fixup commits that undo earlier same-PR changes (see below)
 
             Post inline comments on specific lines where you find real issues.
             Skip pedantic nitpicks and pre-existing issues not introduced by
@@ -151,6 +152,33 @@ jobs:
             pattern - flag it in the general review body the same way as a
             subject-wording issue, citing the commit or the PR body and what
             to remove or generalize it to.
+
+            Also check whether this PR carries fixup commits that should have
+            been squashed before opening it, using the commit list you
+            already fetched above:
+            - Any subject literally starting with `fixup!` or `squash!` (the
+              markers `git commit --fixup`/`--squash` produce) is always worth
+              flagging - these are meant to be squashed via
+              `git rebase --autosquash` before the PR is opened, not merged as
+              separate commits.
+            - More generally, a commit that undoes a change an earlier commit
+              in this same PR just made - it adds a line/block that a later
+              commit removes or reverts, with no substantive change to that
+              code in between - is the same problem even without an explicit
+              fixup marker: the two commits should have been one, or the
+              earlier one should never have been committed as-is. Read each
+              commit's own diff (not the PR's cumulative diff) with one
+              `git log --patch ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}`
+              and compare each commit's additions/removals against earlier
+              commits' in this same PR.
+              Use judgment: a commit that legitimately revises, extends, or
+              replaces earlier in-PR work (not just blindly reverting it) is
+              normal iterative development and should NOT be flagged - only
+              flag a straight undo that adds no new value.
+            Raise any hit in the general review body (not inline, since it
+            spans multiple commits), citing both short SHAs and, for the
+            explicit-marker case, that an interactive rebase should squash
+            them; for the semantic case, what the later commit undoes.
 
             Then submit a formal review. This is mandatory and is the only
             thing that records the outcome: the run is NOT complete until a
