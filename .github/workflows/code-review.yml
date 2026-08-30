@@ -52,10 +52,14 @@ jobs:
       # it fetched here the review can hold a PR to the real document instead
       # of to a paraphrase in the prompt that silently drifts from it. That
       # repo is public, so this needs no token.
+      # Its own directory, not $RUNNER_TEMP itself: the review is granted read
+      # access to wherever this lands, and $RUNNER_TEMP also holds the
+      # git-credentials config actions/checkout writes.
       - name: Fetch org contribution guidelines
         continue-on-error: true
         run: |
-          curl -sSfL -o "$RUNNER_TEMP/CONTRIBUTING.md" \
+          mkdir -p "$RUNNER_TEMP/conventions"
+          curl -sSfL -o "$RUNNER_TEMP/conventions/CONTRIBUTING.md" \
             https://raw.githubusercontent.com/theme-my-login/.github/main/CONTRIBUTING.md
 
       - id: started
@@ -141,7 +145,7 @@ jobs:
             The conventions this family is held to are written down, not
             something to infer from the surrounding code. Read both before
             reviewing:
-            - `${{ runner.temp }}/CONTRIBUTING.md` - the org-wide commit and
+            - `${{ runner.temp }}/conventions/CONTRIBUTING.md` - the org-wide commit and
               PR conventions. No repo carries its own copy, so this is the
               source of truth for every one of them.
             - The repo's own `CLAUDE.md`, if it has one - architecture,
@@ -253,6 +257,7 @@ jobs:
             only `gh pr review ...` itself is permitted, so anything else is
             denied outright and the review never gets recorded.
           claude_args: |
+            --add-dir "${{ runner.temp }}/conventions"
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*)"
 
       # The action exits 0 whether or not Claude actually submitted anything,
