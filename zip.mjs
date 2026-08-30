@@ -10,8 +10,29 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+
+/**
+ * Whether a repo's composer.json declares any real (non-platform) runtime
+ * dependency under `require`, as opposed to `require-dev`-only tooling
+ * (PHPUnit, WP core test scaffolding) that every other extension uses.
+ * Read from composer.json rather than a separate config flag, since it's
+ * already the authoritative record of what a repo ships at runtime.
+ */
+function hasRuntimeDependencies( dir ) {
+	const composerJsonPath = join( dir, 'composer.json' );
+
+	if ( ! existsSync( composerJsonPath ) ) {
+		return false;
+	}
+
+	const { require: requireBlock = {} } = JSON.parse( readFileSync( composerJsonPath, 'utf8' ) );
+
+	return Object.keys( requireBlock ).some(
+		( name ) => ! /^(php|ext-|lib-|composer-plugin-api)/.test( name )
+	);
+}
 
 const cwd = process.cwd();
 const slug = basename( cwd );
@@ -22,25 +43,43 @@ if ( existsSync( zipPath ) ) {
 	rmSync( zipPath );
 }
 
+const shipsVendor = hasRuntimeDependencies( cwd );
+
+if ( shipsVendor ) {
+	// Reinstall production-only, so dev/test packages that may already be
+	// present in vendor/ (from an earlier `composer install`) don't ship too.
+	execFileSync( 'composer', [ 'install', '--no-dev', '--optimize-autoloader', '--no-interaction' ], {
+		cwd,
+		stdio: 'inherit',
+	} );
+}
+
+const excludes = [
+	`${ slug }/node_modules/*`,
+	`${ slug }/.git/*`,
+	`${ slug }/.gitignore`,
+	`${ slug }/.github/*`,
+	`${ slug }/bin/*`,
+	`${ slug }/tests/*`,
+	`${ slug }/CONTRIBUTING.md`,
+	`${ slug }/CLAUDE.md`,
+	`${ slug }/release-please-config.json`,
+	`${ slug }/.release-please-manifest.json`,
+	`${ slug }/package.json`,
+	`${ slug }/package-lock.json`,
+	`${ slug }/composer.json`,
+	`${ slug }/composer.lock`,
+	`${ slug }/commitlint.config.cjs`,
+	`${ slug }/*.dist`,
+];
+
+if ( ! shipsVendor ) {
+	excludes.push( `${ slug }/vendor/*` );
+}
+
 execFileSync( 'zip', [
 	'-rq',
 	zipPath,
 	slug,
-	'-x', `${ slug }/node_modules/*`,
-	'-x', `${ slug }/vendor/*`,
-	'-x', `${ slug }/.git/*`,
-	'-x', `${ slug }/.gitignore`,
-	'-x', `${ slug }/.github/*`,
-	'-x', `${ slug }/bin/*`,
-	'-x', `${ slug }/tests/*`,
-	'-x', `${ slug }/CONTRIBUTING.md`,
-	'-x', `${ slug }/CLAUDE.md`,
-	'-x', `${ slug }/release-please-config.json`,
-	'-x', `${ slug }/.release-please-manifest.json`,
-	'-x', `${ slug }/package.json`,
-	'-x', `${ slug }/package-lock.json`,
-	'-x', `${ slug }/composer.json`,
-	'-x', `${ slug }/composer.lock`,
-	'-x', `${ slug }/commitlint.config.cjs`,
-	'-x', `${ slug }/*.dist`,
+	...excludes.flatMap( ( pattern ) => [ '-x', pattern ] ),
 ], { cwd: parentDir, stdio: 'inherit' } );
