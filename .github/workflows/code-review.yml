@@ -9,6 +9,14 @@ jobs:
       github.event.pull_request.draft == false &&
       !startsWith(github.head_ref, 'release-please--branches--')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # A review costs real API usage, so superseded runs shouldn't finish.
+    # Pushing twice in quick succession cancels the first review rather than
+    # paying for two and posting both.
+    concurrency:
+      group: code-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
 
     permissions:
       contents: read
@@ -262,6 +270,7 @@ jobs:
             [ .[]? | select(.type == "result") | (.permission_denials // [])[] ]
             | if length == 0 then "No tool calls were blocked."
               else
+                "::warning::Claude was blocked from \(length) tool call(s) and may have been unable to verify something it flagged. If a denial looks legitimate, widen --allowedTools.",
                 "Blocked tool calls (\(length)):",
                 ( .[] | "  - \(.tool_name // "?"): "
                     + ((.tool_input.command // (.tool_input | tostring)) | tostring | .[0:300]) )
