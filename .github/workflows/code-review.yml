@@ -64,6 +64,27 @@ jobs:
             Review this pull request. The PR branch is already checked out
             (as a detached HEAD) in the current working directory.
 
+            This job re-runs on every push and you keep no memory between
+            runs, so start by reading what you have already said on this PR
+            and how the author answered:
+            `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '.[] | {user: .user.login, state, body}'`
+            `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --jq '.[] | {user: .user.login, path, line, in_reply_to_id, body}'`
+            `gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments --jq '.[] | {user: .user.login, body}'`
+            Do not raise a point you have already raised unless the new
+            commits changed the code it was about. Repeating a finding keeps
+            the PR blocked while telling the author nothing they haven't
+            already seen and possibly already answered. Where an earlier
+            finding has since been addressed, say so in the review body and
+            drop it rather than restating it.
+
+            Treat a reply from the PR author as settling the point. If they
+            have explained why something is deliberate, or why an earlier
+            finding was wrong, do not raise it again on this PR - they know
+            this codebase and they have already answered you. Re-raising it
+            would block the PR with no way for them to clear it except
+            dismissing your review by hand. Note briefly in the review body
+            that the point was raised and answered, and move on.
+
             Focus on:
             - Correctness bugs and edge cases introduced by this diff
             - Security implications
@@ -72,9 +93,15 @@ jobs:
             - Private-system identifiers in commit messages or the PR body (see below)
             - Fixup commits that undo earlier same-PR changes (see below)
 
-            Post inline comments on specific lines where you find real issues.
-            Skip pedantic nitpicks and pre-existing issues not introduced by
-            this diff.
+            Post an inline comment only for something this PR has to change
+            before it can merge - a correctness bug, a security hole, a
+            violation of a stated guideline. An inline comment is a request
+            for a change, not a place to think out loud. Everything else stays
+            out of the inline comments: pedantic nitpicks, style preferences,
+            pre-existing issues this diff didn't introduce, praise, and
+            anything you are merely unsure about. If you wouldn't hold up the
+            merge for it, it belongs in the review body as an explicitly
+            optional note, or nowhere at all.
 
             The full git history is checked out and `git log`, `git show`,
             `git blame` and `git diff` are available. Use `git blame` before
@@ -187,17 +214,28 @@ jobs:
             final message instead of submitting a review counts as a failed
             run.
 
+            There are exactly two outcomes and every run must reach one of
+            them. Merging here requires an approving review, so a review that
+            neither approves nor requests changes doesn't sit in the middle -
+            it silently strands the PR. Don't leave one in that state.
+
             Write the review body to `/tmp/review-body.md` with the Write
             tool, then submit it with a single Bash call:
-            - If you posted inline comments, or flagged a commit subject or a
-              private-system reference (real issues were found either way):
-              `gh pr review ${{ github.event.pull_request.number }} --comment --body-file /tmp/review-body.md`
-              Do NOT approve, since issues were found.
-            - If you found nothing worth flagging:
+            - If something has to change before this can merge - you posted an
+              inline comment, or found a commit subject, private-system
+              reference, or fixup commit that needs correcting:
+              `gh pr review ${{ github.event.pull_request.number }} --request-changes --body-file /tmp/review-body.md`
+              Say plainly in the body what has to change. This blocks the
+              merge until it's dealt with, and pushing a new commit dismisses
+              the review and re-runs this job, so a fix clears it on its own.
+            - Otherwise:
               `gh pr review ${{ github.event.pull_request.number }} --approve --body-file /tmp/review-body.md`
-              noting that the diff looks clean.
-            A plain comment review still shows up as "not approved" without
-            a hard block, which is what we want here.
+              Approve even when you have optional observations - put them in
+              the body and word them as optional. Withholding approval over
+              something you would not actually block the merge for is the one
+              failure mode to avoid here.
+            Never submit a `--comment` review. It records no verdict and
+            leaves the PR unmergeable with nothing to act on.
 
             Always pass the PR number explicitly as
             ${{ github.event.pull_request.number }}, do not omit it or rely on
@@ -205,7 +243,7 @@ jobs:
             `--body-file`, not an inline `--body`, and do not pipe, heredoc, or
             otherwise assemble the command through an intermediate shell step:
             only `gh pr review ...` itself is permitted, so anything else is
-            denied outright and you get no second chance to submit.
+            denied outright and the review never gets recorded.
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*)"
 
