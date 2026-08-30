@@ -18,7 +18,37 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          # Full history so the review can blame a line before calling it
+          # pre-existing, rather than guessing from the diff alone.
+          fetch-depth: 0
+
+      # Without this the review job has no vendor/ tree, so a question about
+      # how a dependency actually behaves (WP core's own auth/pluggable
+      # functions, most often) can't be answered from inside the job and gets
+      # raised as an unverifiable concern on every re-run, permanently
+      # withholding the approving review branch protection requires. Only the
+      # dependency *sources* are needed, not a runnable toolchain, so scripts
+      # and plugins are both skipped: unlike test.yml this job inherits
+      # secrets, and a plugin can self-authorize through the PR's own
+      # config.allow-plugins, so neither may execute here. The runner's own
+      # PHP is used whatever a repo pins, and a failure degrades to no vendor/
+      # rather than failing the review.
+      - name: Install PHP dependencies
+        if: hashFiles('composer.json') != ''
+        continue-on-error: true
+        run: composer install --prefer-dist --no-progress --no-scripts --no-plugins --ignore-platform-reqs
+
+      # The conventions the review enforces live in the org-wide default
+      # CONTRIBUTING.md in theme-my-login/.github, which is not part of any
+      # repo's own checkout - no repo in the family carries its own copy. With
+      # it fetched here the review can hold a PR to the real document instead
+      # of to a paraphrase in the prompt that silently drifts from it. That
+      # repo is public, so this needs no token.
+      - name: Fetch org contribution guidelines
+        continue-on-error: true
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/CONTRIBUTING.md" \
+            https://raw.githubusercontent.com/theme-my-login/.github/main/CONTRIBUTING.md
 
       - id: started
         run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
@@ -37,7 +67,7 @@ jobs:
             Focus on:
             - Correctness bugs and edge cases introduced by this diff
             - Security implications
-            - Adherence to any project CLAUDE.md guidelines
+            - Adherence to the written conventions (see below)
             - Commit subject wording (see below)
             - Private-system identifiers in commit messages or the PR body (see below)
 
@@ -45,12 +75,56 @@ jobs:
             Skip pedantic nitpicks and pre-existing issues not introduced by
             this diff.
 
+            The full git history is checked out and `git log`, `git show`,
+            `git blame` and `git diff` are available. Use `git blame` before
+            treating something as pre-existing or as a deliberate earlier
+            decision - it is the only way to tell whether the line you are
+            about to flag arrived with this PR or has been there for a year.
+
+            If the PR body or a commit references an issue with `Fixes #N` or
+            `Closes #N`, read it:
+            `gh api repos/${{ github.repository }}/issues/<N> --jq '{title, body}'`
+            and check the change actually addresses what was reported, not
+            merely that the diff is internally consistent. A fix that is
+            correct but solves a different problem than the one filed is worth
+            raising.
+
+            You have no network access, but if the repo has a `composer.json`
+            its `vendor/` tree was installed before this run, so every
+            third-party dependency's real source is on disk and readable with
+            Read/Grep/Glob - including WordPress core itself, under
+            `vendor/roots/wordpress-no-content/`, for the repos that depend on
+            it. Read that source before raising any concern about how a
+            dependency behaves. Do not report a concern you were unable to
+            confirm: "worth verifying, I couldn't check core's implementation"
+            tells the author nothing actionable and withholds approval on
+            every re-run, since the next run can't confirm it either. Either
+            confirm it against `vendor/` and report it as a real finding, or
+            leave it out.
+
+            The conventions this family is held to are written down, not
+            something to infer from the surrounding code. Read both before
+            reviewing:
+            - `${{ runner.temp }}/CONTRIBUTING.md` - the org-wide commit and
+              PR conventions. No repo carries its own copy, so this is the
+              source of truth for every one of them.
+            - The repo's own `CLAUDE.md`, if it has one - architecture,
+              naming, and the constraints specific to this codebase.
+            Where this prompt summarizes a rule from either file, the file
+            wins: it is current and this prompt is a paraphrase.
+
             Also check every commit's subject line. Get the full,
             untruncated list with:
             `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits --jq '.[].commit.message'`
             (the PR's own GraphQL `commits` field truncates long subjects
             with an ellipsis, so don't use `gh pr view --json commits` for
             this).
+
+            Check each commit's type against CONTRIBUTING.md's own table
+            first - `fix` in particular is reserved for user-facing bug fixes,
+            so a fix to CI, build tooling, or a distribution listing is the
+            wrong type even though it fixes something, and the wrong type puts
+            a commit in the changelog (or keeps it out) incorrectly.
 
             For every commit whose type is `feat`, `fix`, or `perf` (or that
             has a `!` after the type, or a `BREAKING CHANGE:` footer) - these
@@ -105,7 +179,7 @@ jobs:
             only `gh pr review ...` itself is permitted, so anything else is
             denied outright and you get no second chance to submit.
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*)"
 
       # The action exits 0 whether or not Claude actually submitted anything,
       # so a dropped review used to look like a passing check. These two steps
