@@ -24,7 +24,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Full history so the review can blame a line before calling it
           # pre-existing, rather than guessing from the diff alone.
