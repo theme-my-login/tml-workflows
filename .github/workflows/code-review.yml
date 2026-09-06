@@ -71,6 +71,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
+            REPO VISIBILITY: ${{ github.event.repository.private && 'private' || 'public' }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
             Review this pull request. The PR branch is already checked out
@@ -102,7 +103,8 @@ jobs:
             - Security implications
             - Adherence to the written conventions (see below)
             - Commit subject wording (see below)
-            - Private-system identifiers in commit messages or the PR body (see below)
+            - Private-system identifiers in commit messages or the PR body,
+              in public repos only (see below)
             - Fixup commits that undo earlier same-PR changes (see below)
 
             Post an inline comment only for something this PR has to change
@@ -182,15 +184,21 @@ jobs:
             comment: cite the commit's short SHA, its current subject, and a
             corrected wording.
 
-            Also check the same commit messages, and the PR body, for a
-            reference to a private system - a Help Scout ticket number, an
-            internal doc/wiki link, a Slack thread, or anything else an
-            outside reader on GitHub couldn't follow. A public WP.org forum
-            thread is fine to cite. This is a judgment call ("would an
-            outside reader recognize what this points to?"), not a fixed
-            pattern - flag it in the general review body the same way as a
-            subject-wording issue, citing the commit or the PR body and what
-            to remove or generalize it to.
+            If REPO VISIBILITY is public, also check the same commit
+            messages, and the PR body, for a reference to a private system - a
+            Help Scout ticket number, an internal doc/wiki link, a Slack
+            thread, or anything else an outside reader on GitHub couldn't
+            follow. A public WP.org forum thread is fine to cite. This is a
+            judgment call ("would an outside reader recognize what this points
+            to?"), not a fixed pattern - flag it in the general review body the
+            same way as a subject-wording issue, citing the commit or the PR
+            body and what to remove or generalize it to.
+
+            Skip that check entirely when REPO VISIBILITY is private. Everyone
+            who can read the PR can also read the system being referenced, so
+            a ticket number, an error-tracker issue ID or an internal link is
+            useful record-keeping there, not a leak. Do not block a private
+            repo's PR over one.
 
             Also check whether this PR carries fixup commits that should have
             been squashed before opening it, using the commit list you
