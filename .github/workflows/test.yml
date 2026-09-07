@@ -11,6 +11,13 @@ on:
         description: Docker image for the database service container.
         type: string
         default: 'mysql:8.0'
+      phpunit-setup-command:
+        description: >-
+          Optional command run in the phpunit job after composer install, for
+          test dependencies Composer can't fetch. Runs from the checkout root;
+          a non-zero exit fails the job.
+        type: string
+        default: ''
 
 jobs:
   lint:
@@ -59,6 +66,14 @@ jobs:
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
+
+      # A caller can't inject a step into a workflow it doesn't control, and
+      # some repos' tests need dependencies Composer can't reach. This job
+      # only: lint sniffs the caller's own tracked source, so the hook stays
+      # one place a caller's command - or a secret it is ever given - can run.
+      - name: Run setup command
+        if: inputs.phpunit-setup-command != ''
+        run: ${{ inputs.phpunit-setup-command }}
 
       - name: Run test suite
         env:
