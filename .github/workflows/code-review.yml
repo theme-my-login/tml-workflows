@@ -5,9 +5,14 @@ on:
 
 jobs:
   review:
+    # claude-code-action hard-fails on a bot actor, and this job is a required
+    # check, so reviewing a bot's PR would leave it permanently unmergeable.
+    # A bot's PR is generated from data and approved by hand anyway, so skip on
+    # author type rather than enumerating each bot's branch prefix - which is
+    # what the release-please-only exclusion this replaces was doing.
     if: |
       github.event.pull_request.draft == false &&
-      !startsWith(github.head_ref, 'release-please--branches--')
+      github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
