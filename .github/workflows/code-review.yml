@@ -85,9 +85,27 @@ jobs:
             This job re-runs on every push and you keep no memory between
             runs, so start by reading what you have already said on this PR
             and how the author answered:
-            `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '.[] | {user: .user.login, state, body}'`
+            `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '.[] | {user: .user.login, state, commit_id, body}'`
             `gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --jq '.[] | {user: .user.login, path, line, in_reply_to_id, body}'`
             `gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments --jq '.[] | {user: .user.login, body}'`
+
+            `commit_id` is the SHA each earlier review was written against,
+            so it is the only record of what you actually saw. Before treating
+            anything as unchanged since an earlier pass, establish what moved:
+            `git diff --stat <that commit_id>..HEAD`
+            If git does not have that commit, the branch was force-pushed and
+            it was never fetched. GitHub still serves it, so fall back to
+            `gh api repos/${{ github.repository }}/compare/<that commit_id>...${{ github.event.pull_request.head.sha }} --jq '.files[] | {filename, additions, deletions}'`
+            That fallback compares against the merge base rather than the two
+            commits directly, so it can list more than really changed. Over
+            reporting is safe here; a non-empty list means re-read the files it
+            names before reusing anything you concluded last time.
+
+            Never state that the code is unchanged without having run one of
+            those two. An amended commit keeps the same subject and the same
+            file list while its contents change completely, so earlier findings
+            can describe code that no longer exists.
+
             Do not raise a point you have already raised unless the new
             commits changed the code it was about. Repeating a finding keeps
             the PR blocked while telling the author nothing they haven't
