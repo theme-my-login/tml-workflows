@@ -19,6 +19,16 @@ on:
         type: string
         default: ''
 
+    secrets:
+      aws-access-key-id:
+        description: >-
+          Optional S3 credential exported to the setup command, for a command
+          that fetches test dependencies from object storage.
+        required: false
+      aws-secret-access-key:
+        description: Secret half of the credential above.
+        required: false
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -73,6 +83,9 @@ jobs:
       # one place a caller's command - or a secret it is ever given - can run.
       - name: Run setup command
         if: inputs.phpunit-setup-command != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws-secret-access-key }}
         run: ${{ inputs.phpunit-setup-command }}
 
       - name: Run test suite
