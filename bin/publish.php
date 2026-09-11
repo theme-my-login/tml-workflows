@@ -9,7 +9,7 @@
  *   TAG_NAME          e.g. "v1.2.0" - the tag release-please just created.
  *   VERSION            e.g. "1.2.0"
  *   FILE_NAME           e.g. "tml-favorites-1.2.0.zip"
- *   S3_PATH              e.g. "tml-extensions/extensions/favorites/tml-favorites-1.2.0.zip"
+ *   S3_PATH              e.g. "tml-downloads/favorites/tml-favorites-1.2.0.zip"
  *   CI_RELEASE_TOKEN, RELEASE_ENDPOINT_URL
  *   RELEASE_DRY_RUN      "true" (default) or "false" - anything but the
  *                         literal string "false" is dry-run.

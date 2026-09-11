@@ -73,7 +73,7 @@ jobs:
 
           extension_slug="${{ steps.zip.outputs.slug }}"
           extension_slug="${extension_slug#tml-}"
-          s3_key="extensions/${extension_slug}/${{ steps.zip.outputs.file_name }}"
+          s3_key="${extension_slug}/${{ steps.zip.outputs.file_name }}"
 
           aws s3 cp "../${{ steps.zip.outputs.file_name }}" "s3://${{ vars.DO_SPACES_BUCKET }}/${s3_key}" \
             --endpoint-url "https://${{ vars.DO_SPACES_HOST }}"
