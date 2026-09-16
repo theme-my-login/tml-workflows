@@ -51,6 +51,24 @@ jobs:
         continue-on-error: true
         run: composer install --prefer-dist --no-progress --no-scripts --no-plugins --ignore-platform-reqs
 
+      # A storefront repo's paid EDD add-ons are not Composer packages: they are
+      # pinned in edd-plugins.lock.json and pulled from a private mirror during
+      # the image build, so the step above still leaves the review with no source
+      # for the code that repo's own plugins hook into, and the unverifiable
+      # concern described above gets raised about EDD instead. The lock file's
+      # presence is the whole trigger, so no repo configures anything and every
+      # repo without one skips this. Unlike composer above, this does execute
+      # repo code with a credential in the environment: the only repo carrying
+      # that lock file is private, and the key is read-only on a mirror of
+      # packages that repo is already licensed for.
+      - name: Install pinned EDD add-ons
+        if: hashFiles('edd-plugins.lock.json') != ''
+        continue-on-error: true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DO_SPACES_READONLY_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DO_SPACES_READONLY_SECRET }}
+        run: bin/edd-sync.php pull
+
       # The conventions the review enforces live in the org-wide default
       # CONTRIBUTING.md in theme-my-login/.github, which is not part of any
       # repo's own checkout - no repo in the family carries its own copy. With
@@ -159,7 +177,10 @@ jobs:
             third-party dependency's real source is on disk and readable with
             Read/Grep/Glob - including WordPress core itself, under
             `vendor/roots/wordpress-no-content/`, for the repos that depend on
-            it. Read that source before raising any concern about how a
+            it. A repo with an `edd-plugins.lock.json` also has the paid add-ons
+            it pins installed, under `web/app/plugins/`, which is where Easy
+            Digital Downloads and its extensions are readable from.
+            Read that source before raising any concern about how a
             dependency behaves. Do not report a concern you were unable to
             confirm: "worth verifying, I couldn't check core's implementation"
             tells the author nothing actionable and withholds approval on
