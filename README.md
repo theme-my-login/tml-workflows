@@ -12,6 +12,7 @@ Each extension repo stays a thin caller — no build/deploy logic is duplicated 
 - **`lint-commits.yml`** — wraps `wagoid/commitlint-github-action`. Each calling repo needs its own `commitlint.config.js` (adapt from `theme-my-login-7`'s or the `CONTRIBUTING.md` doc).
 - **`test.yml`** — `lint` (phpcs/WPCS via the calling repo's own `composer.json`/`phpcs.xml.dist`) and `phpunit` (the calling repo's own `composer.json`/`phpunit.xml.dist`/`tests/`, with a MySQL service provisioned the same way the base plugin's does; if the repo has `tests/phpunit/multisite.xml`, that suite runs too). The test *content* is per-repo, only the check shape is shared. An optional `phpunit-setup-command` input runs a caller-supplied command in the `phpunit` job after `composer install`, for a repo whose tests need something Composer can't fetch; it deliberately doesn't run in `lint`, which only sniffs the caller's own tracked source.
 - **`build.yml`** — same `build.mjs` as the deploy job, as a PR-time sanity check. Shared by the base plugin and every extension alike (see `build.mjs` below for how one script serves both).
+- **`lint-shell.yml`** — shellcheck over every tracked shell file, plus `bats` over every tracked `*.bats` file wherever it sits (not just `tests/`, since bats does not recurse on its own). Both tools run from their own pinned release image rather than whatever the runner ships, with the tags in one `env:` block because inline `docker run` arguments are invisible to Dependabot. Takes no inputs: files are discovered by name (`*.sh`, `*.bash`, `*.bats`) or by shebang, so a repo with none is a no-op and one that grows its first script is covered without a workflow change. Shellcheck rejects a php or node shebang outright, so the shebang match has to be an allowlist — anything carrying one it does not recognise as shell is reported as *not linted* rather than silently dropped. Note that shellcheck infers a dialect from a `.bash` extension but **not** from `.sh`, so a shebangless library named `*.sh` fails SC2148 until it carries a `# shellcheck shell=bash` directive.
 
 ## `build.mjs`
 
@@ -97,6 +98,16 @@ Add it as a `devDependency` pointing at the repo directly (it's public, no auth 
       uses: theme-my-login/tml-workflows/.github/workflows/test.yml@main
     build:
       uses: theme-my-login/tml-workflows/.github/workflows/build.yml@main
+  ```
+
+  ```yaml
+  # .github/workflows/lint-shell.yml
+  on:
+    pull_request:
+      branches: [master]
+  jobs:
+    lint-shell:
+      uses: theme-my-login/tml-workflows/.github/workflows/lint-shell.yml@main
   ```
 
 ## Org-level secrets/variables (set once on `theme-my-login`)

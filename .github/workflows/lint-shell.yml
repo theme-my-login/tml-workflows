@@ -1,0 +1,91 @@
+name: Lint shell
+
+on:
+  workflow_call:
+
+# Both tools run from their own pinned release image rather than whatever the runner
+# happens to ship, so a version bump in either cannot turn an unrelated pull request red.
+# Inline `docker run` arguments are invisible to Dependabot, so the tags are hoisted here
+# to keep a bump one edit in one place.
+env:
+  SHELLCHECK_IMAGE: koalaman/shellcheck:v0.11.0
+  BATS_IMAGE: bats/bats:1.14.0
+
+jobs:
+  lint-shell:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Discovery rather than configuration: a tracked file is shell if it is named like
+      # it or starts with a shell shebang, and a test if it is named like one, wherever it
+      # sits. A repo with neither is a no-op, so this is safe to call from anywhere, and a
+      # repo that grows its first script is covered with no workflow change.
+      #
+      # Shellcheck refuses a php, node or python shebang outright, so the match has to be
+      # an allowlist, and an allowlist can always be missing a shape nobody thought of.
+      # Rather than chase that with a longer pattern, anything carrying a shebang that did
+      # not match is listed as not linted: a gap then shows up in the log the first day it
+      # exists instead of never.
+      - name: Find files to check
+        id: find
+        run: |
+          shell_list="$RUNNER_TEMP/shell-files"
+          bats_list="$RUNNER_TEMP/bats-files"
+          skipped="$RUNNER_TEMP/not-linted"
+          all_files="$RUNNER_TEMP/all-files"
+          : > "$shell_list"; : > "$bats_list"; : > "$skipped"
+
+          # Listed to a file first, on its own line. Feeding the loop from a process
+          # substitution would hide a failure here from set -e: the loop would simply not
+          # run, both counts would be zero, both steps would skip, and the job would pass
+          # having checked nothing - which is the failure this workflow exists to remove.
+          git ls-files -z > "$all_files"
+
+          while IFS= read -r -d '' f; do
+            case "$f" in
+              *.bats)      printf '%s\0' "$f" >> "$bats_list";  continue ;;
+              *.sh|*.bash) printf '%s\0' "$f" >> "$shell_list"; continue ;;
+            esac
+            [ -f "$f" ] || continue
+            sb="$(head -1 "$f" 2>/dev/null | tr -d '\0')" || continue
+            case "$sb" in '#!'*) ;; *) continue ;; esac
+            # sh[0-9.]* catches a versioned interpreter (ksh93); [[:space:]] catches a tab
+            # between name and flag, and the trailing CR of a CRLF script - which matters
+            # because shellcheck's SC1017 is the check that would report that file.
+            if printf '%s' "$sb" | grep -qE '^#!.*(/| )(ba|da|k|z|a)?sh[0-9.]*([[:space:]]|$)'; then
+              printf '%s\0' "$f" >> "$shell_list"
+            else
+              printf '%s\t%s\n' "$f" "$sb" >> "$skipped"
+            fi
+          done < "$all_files"
+
+          echo "shell_count=$(tr -cd '\0' < "$shell_list" | wc -c)" >> "$GITHUB_OUTPUT"
+          echo "bats_count=$(tr -cd '\0' < "$bats_list" | wc -c)" >> "$GITHUB_OUTPUT"
+
+          echo "Shell files:";   tr '\0' '\n' < "$shell_list"
+          echo "Bats files:";    tr '\0' '\n' < "$bats_list"
+          echo "Not linted (carries a shebang this does not recognise as shell):"
+          cat "$skipped"
+
+      # --source-path=SCRIPTDIR resolves a `# shellcheck source=` directive against the
+      # script's own directory, so a `. "$(dirname "$0")/../lib/x.sh"` line is followable
+      # without depending on where the linter was invoked from.
+      - name: Shellcheck
+        if: steps.find.outputs.shell_count != '0'
+        run: |
+          xargs -0 -r -a "$RUNNER_TEMP/shell-files" -- \
+            docker run --rm -v "$PWD:/mnt" -w /mnt "$SHELLCHECK_IMAGE" \
+              -x --source-path=SCRIPTDIR
+
+      # Paths rather than a directory: bats does not recurse without -r, and a suite under
+      # tests/unit/ would otherwise report zero tests and pass.
+      - name: Bats
+        if: steps.find.outputs.bats_count != '0'
+        run: |
+          xargs -0 -r -a "$RUNNER_TEMP/bats-files" -- \
+            docker run --rm -v "$PWD:/code" -w /code "$BATS_IMAGE"

@@ -9,6 +9,9 @@ jobs:
   lint-commits:
     uses: ./.github/workflows/lint-commits.yml
 
+  lint-shell:
+    uses: ./.github/workflows/lint-shell.yml
+
   review:
     uses: ./.github/workflows/code-review.yml
     secrets: inherit
