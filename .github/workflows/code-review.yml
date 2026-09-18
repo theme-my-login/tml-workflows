@@ -124,6 +124,22 @@ jobs:
             file list while its contents change completely, so earlier findings
             can describe code that no longer exists.
 
+            That comparison decides only which of your earlier findings still
+            need repeating. It never narrows what you review: every run
+            reviews the whole PR range,
+            `${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}`,
+            as if you were seeing it for the first time. A re-review that
+            examines only what moved since your last pass has not reviewed
+            this PR. After a force-push the SHA you last reviewed is not a
+            baseline at all - the commits it named may no longer exist - so
+            the only baseline is the PR base against the current head.
+
+            "Nothing substantive changed" is a conclusion you may draw only
+            from a diff you ran in this run, never from what an earlier review
+            established. An approval reasoning from your own record of an
+            earlier pass, rather than from a diff, is how a rewrite ships
+            unreviewed behind a green check.
+
             Do not raise a point you have already raised unless the new
             commits changed the code it was about. Repeating a finding keeps
             the PR blocked while telling the author nothing they haven't
@@ -156,7 +172,10 @@ jobs:
             pre-existing issues this diff didn't introduce, praise, and
             anything you are merely unsure about. If you wouldn't hold up the
             merge for it, it belongs in the review body as an explicitly
-            optional note, or nowhere at all.
+            optional note, or nowhere at all. Whenever such a note asks for a
+            change, say to fold it into the commit that introduced it rather
+            than adding a new one - otherwise the note manufactures the very
+            fixup commit you then have to flag.
 
             The full git history is checked out and `git log`, `git show`,
             `git blame` and `git diff` are available. Use `git blame` before
@@ -261,11 +280,21 @@ jobs:
               commit's own diff (not the PR's cumulative diff) with one
               `git log --patch ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}`
               and compare each commit's additions/removals against earlier
-              commits' in this same PR.
+              commits' in this same PR. Run that over the full range on every
+              run, re-reviews included: it is a comparison *between* commits,
+              so a pass that reads only the newest ones cannot perform it at
+              all.
               Use judgment: a commit that legitimately revises, extends, or
               replaces earlier in-PR work (not just blindly reverting it) is
               normal iterative development and should NOT be flagged - only
               flag a straight undo that adds no new value.
+              A fixup you asked for is still a fixup. When a commit exists
+              only to repair what an earlier commit in this PR got wrong -
+              including a repair you requested yourself, whether in an inline
+              comment or an optional note - the answer was to amend that
+              commit, not to add another. Flag it exactly as you would any
+              other fixup; who asked for the change has no bearing on whether
+              the history should carry two commits.
             Raise any hit in the general review body (not inline, since it
             spans multiple commits), citing both short SHAs and, for the
             explicit-marker case, that an interactive rebase should squash
