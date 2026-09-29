@@ -116,7 +116,7 @@ Secrets: `CI_RELEASE_TOKEN`, `DO_SPACES_KEY`, `DO_SPACES_SECRET`, `RELEASE_PLEAS
 
 Variables: `RELEASE_ENDPOINT_URL`, `DO_SPACES_BUCKET`, `DO_SPACES_HOST`.
 
-**`RELEASE_DRY_RUN` stays repo-level**, deliberately — each extension needs to be flippable to live independently of the others. Defaults safe: anything other than the literal string `false` is dry-run.
+**`RELEASE_DRY_RUN` stays repo-level**, deliberately — each extension needs to be flippable to live independently of the others. Defaults live: only the literal string `true` is dry-run.
 
 ## Status
 

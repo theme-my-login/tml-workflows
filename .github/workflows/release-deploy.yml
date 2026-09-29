@@ -84,7 +84,7 @@ jobs:
         env:
           CI_RELEASE_TOKEN: ${{ secrets.CI_RELEASE_TOKEN }}
           RELEASE_ENDPOINT_URL: ${{ vars.RELEASE_ENDPOINT_URL }}
-          RELEASE_DRY_RUN: ${{ vars.RELEASE_DRY_RUN }}
+          RELEASE_DRY_RUN: ${{ vars.RELEASE_DRY_RUN || 'false' }}
           TAG_NAME: ${{ inputs.tag_name }}
           VERSION: ${{ steps.zip.outputs.version }}
           FILE_NAME: ${{ steps.zip.outputs.file_name }}
