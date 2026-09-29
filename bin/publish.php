@@ -11,8 +11,8 @@
  *   FILE_NAME           e.g. "tml-favorites-1.2.0.zip"
  *   S3_PATH              e.g. "tml-downloads/favorites/tml-favorites-1.2.0.zip"
  *   CI_RELEASE_TOKEN, RELEASE_ENDPOINT_URL
- *   RELEASE_DRY_RUN      "true" (default) or "false" - anything but the
- *                         literal string "false" is dry-run.
+ *   RELEASE_DRY_RUN      "true" or "false" (default) - only the literal
+ *                         string "true" is dry-run.
  */
 
 require __DIR__ . '/lib/commits.php';
@@ -39,7 +39,7 @@ $tag_name  = tml_release_env( 'TAG_NAME' );
 $version   = tml_release_env( 'VERSION' );
 $file_name = tml_release_env( 'FILE_NAME' );
 $s3_path   = tml_release_env( 'S3_PATH' );
-$dry_run   = 'false' !== getenv( 'RELEASE_DRY_RUN' ); // default true; must opt out explicitly.
+$dry_run   = 'true' === getenv( 'RELEASE_DRY_RUN' ); // default live; must opt in explicitly.
 
 $repo_slug   = basename( getcwd() );
 $plugin_file = "{$repo_slug}.php";
