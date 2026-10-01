@@ -30,6 +30,20 @@ function tml_release_read_header( $contents, $name ) {
 }
 
 /**
+ * Read the lower bound of phpcs's PHPCompatibility testVersion.
+ *
+ * @param string $phpcs phpcs.xml.dist contents.
+ * @return string Empty if no testVersion with a lower bound is configured.
+ */
+function tml_release_phpcs_php_floor( $phpcs ) {
+	if ( ! preg_match( '/name="testVersion"\s+value="(\d+(?:\.\d+)*)-/', $phpcs, $match ) ) {
+		return '';
+	}
+
+	return $match[1];
+}
+
+/**
  * Collect the version floors to publish alongside a release.
  *
  * A malformed or missing floor is left out rather than failing the release, so
