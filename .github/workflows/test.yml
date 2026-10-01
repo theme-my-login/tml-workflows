@@ -48,6 +48,28 @@ jobs:
       - name: Run phpcs
         run: composer run lint
 
+  headers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # The commit this workflow was called at, so the script matches the workflow.
+      - uses: actions/checkout@v7
+        with:
+          repository: theme-my-login/tml-workflows
+          ref: ${{ job.workflow_sha }}
+          path: .tml-workflows
+          sparse-checkout: bin
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version }}
+          coverage: none
+
+      - name: Require version-floor headers
+        run: php .tml-workflows/bin/check-headers.php
+
   phpunit:
     runs-on: ubuntu-latest
 
