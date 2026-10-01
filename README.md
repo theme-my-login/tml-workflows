@@ -48,6 +48,7 @@ Add it as a `devDependency` pointing at the repo directly (it's public, no auth 
 - Root plugin file named `<repo-slug>.php`, extending `Theme_My_Login_Extension`, with an `x-release-please-version` marker comment on both the `Version:` header and the `protected $version = '...';` property (release-please's `extra-files` bumps these directly).
 - `release-please-config.json` + `.release-please-manifest.json` at the repo root.
 - `protected $item_id = <EDD download post ID>;` property — read directly by `bin/publish.php`.
+- `Requires at least:`, `Requires PHP:` and `Requires TML:` headers on the root plugin file. `bin/publish.php` sends them with each release as the product's version floors (via `bin/lib/requirements.php`); a missing one leaves the store's value alone.
 - `tml-workflows` as a `devDependency` (see above) — needed by both `test.yml`'s `build` caller and `release-deploy.yml`.
 - CSS/JS in `assets/styles`/`assets/scripts`, if any — `build.mjs` picks up whichever directories exist and skips the rest.
 - Existing git tags following the `vX.Y.Z` convention.

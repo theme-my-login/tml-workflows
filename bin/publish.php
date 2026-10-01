@@ -16,6 +16,7 @@
  */
 
 require __DIR__ . '/lib/commits.php';
+require __DIR__ . '/lib/requirements.php';
 
 /**
  * Read an env var, exiting if it's required and unset/empty.
@@ -65,6 +66,12 @@ if ( empty( $bullets ) ) {
 	exit( 1 );
 }
 
+$requirements = tml_release_requirements( $contents );
+
+foreach ( $requirements['warnings'] as $warning ) {
+	fwrite( STDOUT, "::warning::{$warning}\n" );
+}
+
 $payload = array(
 	'item_id'   => $item_id,
 	'version'   => $version,
@@ -73,6 +80,11 @@ $payload = array(
 	'file_name' => $file_name,
 	'dry_run'   => $dry_run,
 );
+
+// An empty array would encode as [] and fail the endpoint's object schema.
+if ( ! empty( $requirements['requires'] ) ) {
+	$payload['requires'] = $requirements['requires'];
+}
 
 $url   = tml_release_env( 'RELEASE_ENDPOINT_URL' );
 $token = tml_release_env( 'CI_RELEASE_TOKEN' );
