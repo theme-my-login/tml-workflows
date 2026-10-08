@@ -19,7 +19,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Discovery rather than configuration: a tracked file is shell if it is named like
       # it or starts with a shell shebang, and a test if it is named like one, wherever it
