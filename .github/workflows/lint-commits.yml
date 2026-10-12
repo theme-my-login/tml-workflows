@@ -16,14 +16,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The one commitlint config for every caller; types match the org CONTRIBUTING.md.
       # Dependabot bodies carry SHA compare links longer than body-max-line-length.
       - name: Write commitlint config
         run: |
-          base="'@commitlint/config-conventional'"
-          [ -f commitlint.config.mjs ] && base="'./commitlint.config.mjs'"
-          cat > .commitlint.shared.mjs <<EOF
+          cat > .commitlint.shared.mjs <<'EOF'
           export default {
-            extends: [${base}],
+            extends: ['@commitlint/config-conventional'],
+            rules: {
+              'type-enum': [2, 'always', ['feat', 'fix', 'chore', 'ci', 'docs', 'build', 'perf', 'refactor', 'test']],
+            },
             ignores: [(message) => /^Signed-off-by: dependabot\[bot\]/m.test(message)],
           };
           EOF
