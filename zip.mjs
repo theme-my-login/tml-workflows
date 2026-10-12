@@ -69,7 +69,6 @@ const excludes = [
 	`${ slug }/package-lock.json`,
 	`${ slug }/composer.json`,
 	`${ slug }/composer.lock`,
-	`${ slug }/commitlint.config.cjs`,
 	`${ slug }/*.dist`,
 ];
 
