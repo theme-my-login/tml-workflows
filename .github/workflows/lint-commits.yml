@@ -16,7 +16,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Dependabot bodies carry SHA compare links longer than body-max-line-length.
+      - name: Write commitlint config
+        run: |
+          base="'@commitlint/config-conventional'"
+          [ -f commitlint.config.mjs ] && base="'./commitlint.config.mjs'"
+          cat > .commitlint.shared.mjs <<EOF
+          export default {
+            extends: [${base}],
+            ignores: [(message) => /^Signed-off-by: dependabot\[bot\]/m.test(message)],
+          };
+          EOF
+
       - uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6.2.1
+        with:
+          configFile: ./.commitlint.shared.mjs
 
       - name: Reject AI-attribution trailers/footers
         run: |
