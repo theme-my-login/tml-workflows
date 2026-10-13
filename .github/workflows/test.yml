@@ -70,6 +70,9 @@ jobs:
       - name: Require version-floor headers
         run: php .tml-workflows/bin/check-headers.php
 
+      - name: Require Tested up to to match the tested WordPress
+        run: php .tml-workflows/bin/check-tested-up-to.php
+
   phpunit:
     runs-on: ubuntu-latest
 
