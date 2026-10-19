@@ -10,7 +10,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 /**
@@ -34,6 +34,33 @@ function hasRuntimeDependencies( dir ) {
 	);
 }
 
+/**
+ * Delete what dependencies ship for their own development (tests, demos, docs, CI config).
+ *
+ * Only each package's top level is checked, so same-named folders inside runtime code still ship.
+ */
+function removeDependencyDevFiles( vendorDir ) {
+	const devEntry = /^(_?tests?|testsDependency|demos?|docs?|examples?|\.github|phpunit\.xml(\.dist)?|\.gitignore|\.gitattributes|\.editorconfig|.*\.(sln|phpproj))$/i;
+
+	for ( const vendor of readdirSync( vendorDir, { withFileTypes: true } ) ) {
+		if ( ! vendor.isDirectory() || 'bin' === vendor.name || 'composer' === vendor.name ) {
+			continue;
+		}
+
+		for ( const pkg of readdirSync( join( vendorDir, vendor.name ), { withFileTypes: true } ) ) {
+			if ( ! pkg.isDirectory() ) {
+				continue;
+			}
+
+			for ( const entry of readdirSync( join( vendorDir, vendor.name, pkg.name ) ) ) {
+				if ( devEntry.test( entry ) ) {
+					rmSync( join( vendorDir, vendor.name, pkg.name, entry ), { recursive: true, force: true } );
+				}
+			}
+		}
+	}
+}
+
 const cwd = process.cwd();
 const slug = basename( cwd );
 const parentDir = dirname( cwd );
@@ -52,6 +79,8 @@ if ( shipsVendor ) {
 		cwd,
 		stdio: 'inherit',
 	} );
+
+	removeDependencyDevFiles( join( cwd, 'vendor' ) );
 }
 
 const excludes = [
