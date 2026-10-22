@@ -220,6 +220,18 @@ jobs:
             confirm it against `vendor/` and report it as a real finding, or
             leave it out.
 
+            These look like findings but are settled for this family, so do
+            not raise them:
+            - An array-valued request nonce reaching `wp_verify_nonce()`. Its
+              `(string)` cast warns, but core passes raw request nonces the
+              same way in `check_admin_referer()`, `check_ajax_referer()` and
+              its own direct calls, and code matching core is left alone. An
+              array request value built into a string of our own (an action
+              name, a key) is still a finding.
+            - Hooking `added_term_meta`, `updated_term_meta` or
+              `deleted_term_meta` to `wp_cache_set_terms_last_changed()`.
+              Core already does, in `wp-includes/default-filters.php`.
+
             The conventions this family is held to are written down, not
             something to infer from the surrounding code. Read both before
             reviewing:
