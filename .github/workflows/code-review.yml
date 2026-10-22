@@ -178,10 +178,21 @@ jobs:
             fixup commit you then have to flag.
 
             The full git history is checked out and `git log`, `git show`,
-            `git blame` and `git diff` are available. Use `git blame` before
-            treating something as pre-existing or as a deliberate earlier
-            decision - it is the only way to tell whether the line you are
-            about to flag arrived with this PR or has been there for a year.
+            `git blame`, `git diff`, `git grep` and `git ls-files` are
+            available. Use `git blame` before treating something as
+            pre-existing or as a deliberate earlier decision - it is the only
+            way to tell whether the line you are about to flag arrived with
+            this PR or has been there for a year.
+
+            Every Bash call must be a single command from that list or a
+            `gh` command, run from the current directory: no `cd`, and no
+            `;`, `&&`, shell pipes or redirects (a `|` inside a quoted `--jq`
+            filter is fine). Anything else is denied. Search with the Grep
+            and Glob tools, read with Read, and write files with Write, never
+            with shell `grep`, `find`, `sed`, `cat`, `printf` or `echo`. Do
+            not run linters, tests or `composer`; CI runs those as their own
+            checks. If a call is denied, retry it with an allowed tool. A
+            denial is never a reason to report something as unchecked.
 
             If the PR body or a commit references an issue with `Fixes #N` or
             `Closes #N`, read it:
@@ -199,6 +210,8 @@ jobs:
             it. A repo with an `edd-plugins.lock.json` also has the paid add-ons
             it pins installed, under `web/app/plugins/`, which is where Easy
             Digital Downloads and its extensions are readable from.
+            Both directories are gitignored, so a Grep over the whole repo
+            skips them: pass the directory itself as Grep's path.
             Read that source before raising any concern about how a
             dependency behaves. Do not report a concern you were unable to
             confirm: "worth verifying, I couldn't check core's implementation"
@@ -339,7 +352,7 @@ jobs:
             denied outright and the review never gets recorded.
           claude_args: |
             --add-dir "${{ runner.temp }}/conventions"
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*),Bash(gh api:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*),Bash(git grep:*),Bash(git ls-files:*)"
 
       # The action exits 0 whether or not Claude actually submitted anything,
       # so a dropped review used to look like a passing check. These two steps
