@@ -256,6 +256,17 @@ jobs:
             wrong type even though it fixes something, and the wrong type puts
             a commit in the changelog (or keeps it out) incorrectly.
 
+            Then check `feat` against `fix` by the user-visible effect, not by
+            whether the diff adds new code. That choice decides a minor or a
+            patch release, and the changelog never shows the mistake. A `feat`
+            whose message describes something that used to go wrong no longer
+            doing so ("stop", "no longer", "prevent", "would break") is likely
+            a `fix`. A `fix` that gives users something they could not do
+            before, including bringing an existing behavior to a place it
+            never existed, or that redesigns output which already worked, is
+            likely a `feat`. Raise a mistyped commit in the general review
+            body, citing its short SHA and the correct type.
+
             For every commit whose type is `feat`, `fix`, or `perf` (or that
             has a `!` after the type, or a `BREAKING CHANGE:` footer) - these
             are the only types that ship in the customer-facing changelog -
@@ -351,8 +362,9 @@ jobs:
             Write the review body to `/tmp/review-body.md` with the Write
             tool, then submit it with a single Bash call:
             - If something has to change before this can merge - you posted an
-              inline comment, or found a commit subject, private-system
-              reference, or fixup commit that needs correcting:
+              inline comment, or found a commit type or subject,
+              private-system reference, or fixup commit that needs
+              correcting:
               `gh pr review ${{ github.event.pull_request.number }} --request-changes --body-file /tmp/review-body.md`
               Say plainly in the body what has to change. This blocks the
               merge until it's dealt with, and pushing a new commit dismisses
